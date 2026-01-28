@@ -1,0 +1,53 @@
+name: Daily ETL Job - Nexudus Invoices
+
+on:
+  schedule:
+    # Runs every day at 10:00 AM UTC
+    # Adjust the time if you need a different timezone
+    - cron: '0 10 * * *'
+  
+  # Allows manual triggering from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run ETL Job
+        env:
+          # These need to be set in your GitHub repository secrets
+          NEXUDUS_USERNAME: ${{ secrets.NEXUDUS_USERNAME }}
+          NEXUDUS_PASSWORD: ${{ secrets.NEXUDUS_PASSWORD }}
+          BUSINESS_ID: ${{ secrets.BUSINESS_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: node downloadInvoices.js
+      
+      - name: Upload output as artifact
+        if: always() # Upload even if ETL fails (for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: etl-output-${{ github.run_number }}
+          path: output/
+          retention-days: 30
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "ETL job failed! Check the logs above for details."
+          echo "Run number: ${{ github.run_number }}"
+          echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

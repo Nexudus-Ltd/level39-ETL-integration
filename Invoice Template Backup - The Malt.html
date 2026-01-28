@@ -1,0 +1,873 @@
+<html style="zoom: 100%">
+
+<head>
+
+    <title>Invoice {{ data.Local.Invoice.InvoiceNumber }}</title>
+
+    <link href="/Content/themes/admin/css/Invoice.css" rel="stylesheet" type="text/css" />
+
+    <style>
+
+        @media print 
+        {
+            @page {
+                size: A4; /* DIN A4 standard, Europe */
+                margin: 1in;
+            }
+
+               
+            
+        }
+        @font-face {
+
+            font-family: CircularXX;
+
+            src: url(https://nexuduscdneu.s3.eu-west-1.amazonaws.com/portals/CircularXX-Book.woff);
+
+        }
+
+        @font-face {
+
+            font-family: CircularXX;
+
+            src: url(https://nexuduscdneu.s3.eu-west-1.amazonaws.com/portals/CircularXX-Bold.woff);
+
+            font-weight: bold;
+
+        }
+
+
+        body {
+
+            margin: 0;
+
+            font-family: CircularXX;
+
+            -webkit-print-color-adjust: exact;
+            padding: 1cm 0;
+
+        }
+
+        .invoice {
+
+            color: #111111;
+
+        }
+
+        .invoice-header {
+
+            padding: 0 1cm 0 1cm;
+
+            display: flex;
+
+            justify-content: space-between;
+
+        }
+
+        .client-details {
+
+            padding-left: 6px;
+
+            margin-top: 20px;
+
+        }
+
+        .invoice-info {
+
+            margin-top: 20px;
+
+            margin-bottom: 20px;
+
+        }
+
+            .invoice-info h2 {
+
+                margin-bottom: 4px;
+
+                font-size: 18pt;
+
+            }
+
+
+
+            .invoice-info p {
+
+                color: #444444;
+
+                margin: 0;
+
+                font-size: 10pt;
+
+            }
+
+
+
+        .table-container {
+
+            background-color: #f5f5f5;
+
+            padding: 0.3cm 1cm 0.3cm 1cm;
+
+        }
+
+
+
+        table {
+
+            width: 100%;
+
+            border-collapse: collapse;
+
+            padding: 0.25cm 0 0.25cm 0;
+
+            font-size: 10pt;
+
+        }
+
+
+
+        th {
+
+            background-color: #f5f5f5;
+
+            height: 40px;
+
+            padding: 6px;
+
+        }
+
+
+
+        tr {
+
+            background: #f5f5f5;
+        
+
+        }
+
+
+
+            tr td {
+
+                padding: 6px;
+
+                line-height: 28px;
+
+            }
+
+
+
+            tr:nth-of-type(2n) td {
+
+                background: #ffffff;
+
+            }
+
+
+
+        .rounded-borders-left {
+
+            border-top-left-radius: 12px;
+
+            border-bottom-left-radius: 12px;
+
+        }
+
+        .rounded-borders-right {
+
+            border-top-right-radius: 12px;
+
+            border-bottom-right-radius: 12px;
+
+        }
+
+
+        .summary-row {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            padding: 0.5cm 1cm 0 1cm;
+
+        }
+
+
+
+        .summary {
+
+            width: 50%;
+
+            font-size: 10pt;
+
+        }
+
+
+
+            .summary div {
+
+                padding: 10px 0 10px 0;
+
+                display: flex;
+
+                justify-content: space-between;
+
+                align-items: center;
+
+                color: #666666;
+
+            }
+
+
+
+            .summary .total-due {
+
+                background: #eeeeee;
+
+                color: #111111;
+
+                border-radius: 6px;
+
+                padding-left: 6px;
+
+                padding-right: 6px;
+
+            }
+
+
+
+                .summary .total-due .total-due-amount {
+
+                    font-size: 16pt;
+
+                }
+
+
+
+        .payment-details, .notes {
+
+            padding: 0 1cm;
+
+        }
+
+
+
+            .payment-details h2, .notes h2 {
+
+                margin-bottom: 0;
+
+            }
+
+
+
+            .payment-details div, .notes div {
+
+                color: #444444;
+
+            }
+
+
+
+        hr {
+
+            color: #dddddd;
+
+        }
+
+
+
+        .align-left {
+
+            text-align: left;
+
+        }
+
+
+
+        .align-right {
+
+            text-align: right;
+
+        }
+
+
+
+        .align-center {
+
+            text-align: center;
+
+        }
+
+
+
+        .pt-12 {
+
+            padding-top: 12px;
+
+        }
+        
+
+    </style>
+    
+
+
+
+
+</head>
+
+<body>
+
+    <div class="block-content">
+
+        <div class="float-right">
+
+            <button style="display: none" type="button"><img src="/Content/themes/admin/images/icons/fugue/printer.png" width="16" height="16"> Print</button>
+
+        </div>
+
+
+
+        <div class="invoice">
+
+            <div class="invoice-header">
+
+                <div class="left-column">
+
+                    {% if data.Local.Invoice.Business.HasLogo %}
+
+                    <img src="{% Url Business, GetLogo, h: 100 %}">
+
+                    {% else %}
+
+                    <div class="title" class="logo" style="font-size: 4em; color: Black; font-family: Open Sans, sans-serif;">{{ data.Local.Invoice.Business.Name }}</div>
+
+                    {% endif %}
+                    <br>
+                    <br>
+
+                    <div class="client-details">
+
+                        </div>
+
+                        <div class="org">
+
+                           {{ data.Local.Invoice.BillToName | Replace: 'Not Available', '' }}
+
+                        </div>
+
+                        <div class="adr">
+
+                            <div class="street-address">
+
+                                {{ data.Local.Invoice.BillToTaxIDNumber | Replace: 'Not Available', '' }}
+
+                            </div>
+
+                            <div class="street-address">
+
+                                {{ data.Local.Invoice.BillToAddress | Replace: 'Not Available', '' | NewlineToBr }}
+
+                            </div>
+
+                            <div id="client-postcode">
+
+                                <span class="postal-code">
+
+                                    <div class="locality">
+
+                                {{ data.Local.Invoice.BillToPostCode | Replace: 'Not Available', '' }}</span>
+
+                                {{ data.Local.Invoice.BillToCity | Replace: 'Not Available', '' }}
+                                
+                                <div class="locality">
+                                    
+                                     {% T data.Local.Invoice.BillToCountry.Name %}
+                                    
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div> 
+
+                </div> 
+
+
+
+              <div class="right-column" style="width: 50%;  text-align: right;">  
+                
+
+                 <strong>Rechnungsdatum: </strong> 
+
+                            <br>
+
+                        {{ data.Local.Invoice.CreatedOn | Date: 'D' }}
+
+                        <br>
+
+                              <h4>
+
+                            <strong>Rechnungsnummer: </strong>
+
+                                <br>
+
+                            {{ data.Local.Invoice.InvoiceNumber }}
+
+                            </h4>
+
+                    
+
+                             
+                <div class="invoice-info">
+
+                        {% if data.Local.Invoice.PurchaseOrder.size > 0%}
+ 
+                        <p class="pt-12">
+
+                            <strong>{% T Zweck: %}</strong>
+
+                            <br>
+
+                            {{ data.Local.Invoice.PurchaseOrder }}
+
+                        </p>
+
+                        {% endif %}
+
+
+
+                        {% if data.Local.Invoice.InvoiceFromDate %}
+
+                         <p class="pt-12">
+
+                        {% T Leistungszeitraum: %}
+
+                            <br>
+
+                            {{ data.Local.Invoice.InvoiceFromDate | Date: 'D' }} - 
+
+                            <br>
+
+                            {{ data.Local.Invoice.InvoiceToDate | Date: 'yyyy-MM-dd' | AddDays: -1 | Date: 'D' }}
+
+                        </p>
+
+                        {% endif %}
+
+                    <br>
+
+                    <br>
+
+                    
+
+                    <br>
+
+                </div>
+             </div>
+
+                    
+            
+            </div>
+            <br>
+            <br>
+            <br>
+    
+
+
+            <div style="clear:both; margin-bottom: 10px;"><p>{% T Notes: %}&nbsp;{{ data.Local.Invoice | CustomFieldValue: '1414319160' }}</p><br></div>
+
+            <div class="table-container">
+
+                <table class="invoice-amount">
+
+                    <thead>
+
+                        <tr id="header_row">
+
+                            <th class="align-left details_notax_th">
+
+                                {% T Beschreibung %}
+
+                            </th>
+
+                            <th class="align-center quantity_th">
+
+                                {% T Anzahl %}
+
+                            </th>
+
+                            <th class="align-right unitprice_th">
+
+                                {% T Einzelpreis %}
+
+                            </th>
+
+                            <th class="align-right subtotal_th">
+
+                                {% T Gesamtpreis %}
+
+                            </th>
+
+                            <th class="align-right subtotal_th">
+
+                                {% T MwSt. %}
+
+                            </th>
+
+                            <th class="align-right subtotal_th">
+
+                                {% T MwSt.-Betrag %}
+
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="invoice_items">
+
+                        {% for line in data.Local.Invoice.Lines %}
+						{% unless line.SubTotal == 0 %}
+
+                        <tr data-model="invoice_item" class="item odd" id="invoice_item_{{ data.Local.Invoice.Id }}">
+
+                            <td class="rounded-borders-left align-left description_td">
+
+                                {{ line.Description }}
+
+                            </td>
+
+                            <td class="align-center quantity_td">
+
+                                {{ line.Quantity }}
+
+                            </td>
+
+                            <td class="align-right price_td">
+
+                                {{ line.UnitPrice | FormatDecimal: 'N' }}
+
+                            </td>
+
+                            <td class="align-right subtotal_td">
+
+                                {{ line.SubTotal | FormatDecimal: 'N' }}
+
+                            </td>
+
+                            <td class="rounded-borders-right align-right subtotal_td">
+
+                                {{ line.TaxPercentage | FormatDecimal: 'N' }}%
+
+                            </td>
+
+                            <td class="rounded-borders-right align-right subtotal_td">
+
+                                {{ line.TaxAmount | FormatDecimal: 'N' }}
+
+                            </td>
+
+                        </tr>
+
+						{% endunless %}
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+
+            <div class="summary-row">
+
+                <div> </div>
+
+                <div class="summary align-right">
+
+                    <div class="subtotal">
+
+                        <span>
+
+                            <b>{% T Gesamt (netto) %}:</b>
+
+                        </span>
+
+
+
+                        <span>
+
+                            <span class="currency">{{ data.Local.Invoice.Currency.Code }}</span> {{ data.Local.Invoice.TotalAmount | Minus: data.Local.Invoice.TaxAmount  | FormatDecimal: 'N' }}
+
+                        </span>
+
+                    </div>
+
+
+
+                    <hr class="separator">
+
+
+
+                    {% for taxCat in data.Local.Invoice.TaxCategories %}
+
+                    <div class="">
+
+                        <span class="total">
+
+                            <b>
+
+                                {% T MwSt. %}
+
+                                ({{ taxCat.Rate | FormatDecimal: 'N' }}%):
+
+                            </b>
+
+                        </span>
+
+
+
+                        <span class="total">
+
+                            <span class="currency">{{ data.Local.Invoice.Currency.Code }}</span> {{ taxCat.TaxSubTotal | FormatDecimal: 'N' }}
+
+                        </span>
+
+                    </div>
+
+                    {% endfor %}
+
+
+
+                    <hr class="separator">
+
+
+
+                    <div class="">
+
+                        <span class="total">
+
+                            <b>Total:</b>
+
+                        </span>
+
+                        <span class="total">
+
+                            <span class="currency">{{ data.Local.Invoice.Currency.Code }}</span> {{ data.Local.Invoice.TotalAmount | FormatDecimal: 'N' }}
+
+                        </span>
+
+                    </div>
+
+
+
+                    <hr class="separator">
+
+
+
+                    {% for payment in data.Local.Invoice.Payments %}
+
+                    <div class="">
+
+                        <span>
+
+                            <b>
+
+                                {% T Angerechneter Betrag %}
+
+                                {{ payment.PaymentDate | Date: 'D' }} ({{ payment.PaymentGatewayName | Replace: 'MultiGateway', 'Card' | Replace: 'Manual', 'Credit' }}) 
+
+                                ({{ payment.Description | Description: 'Description' }})
+
+                            </b>
+
+                        </span>
+
+                        <span>
+
+                            <span class="currency">{{ data.Local.Invoice.Currency.Code }}</span> {{ payment.Credit | FormatDecimal: 'N' }}
+
+                        </span>
+
+                    </div>
+
+                    {% endfor %}
+
+
+
+                    <div class="total-due">
+
+                        <span class="total-due-text">
+
+                            <b>{% T Zu zahlender Betrag: %}</b>
+
+                        </span>
+
+                        <span class="total-due-amount">
+
+                            <span class="currency">{{ data.Local.Invoice.Currency.Code  }}</span> {{ data.Local.Invoice.DueAmount | FormatDecimal: 'N' }}
+
+                        </span>
+
+                     </div>
+
+                </div>
+
+            </div>
+
+                        <p class="invoice-info" id="payment-due">
+
+                            {% if data.Local.Invoice.Paid == false %}
+
+                            {% T Rechnung fällig zum: %}
+
+                            {{ data.Local.Invoice.DueDate | Date: 'D' }}
+
+                            {% else %}
+
+                           {% T Invoice Paid: %}
+
+                            <br>
+
+                            {{ data.Local.Invoice.PaidOn | Date: 'D' }}
+
+                            {% endif %}
+
+                        </p>
+
+                        </div>
+
+                        <br>
+                        <p> <strong>Bitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer auf eines der unten angegebenen Konten.</strong> </p>
+
+
+                       
+
+                       </div>
+                       <div><u>Zahlungsempfänger:</u></div>
+                             <div class="adr">
+                                
+
+                            <div class="street-address">
+
+                                <div id="company-postcode">
+
+                                <span class="postal-code">
+
+                                    <div class="locality">
+
+                                         <div class="adr">
+
+                                        <div class="street-address">
+
+                            {{ data.Setting_Billing_BillToName }}, 
+
+                             {{ data.Local.BillToAddress | Replace: 'Not Available', '' | NewlineToBr }}, 
+
+                              {{ data.Local.BillToPostCode | Replace: 'Not Available', '' }}</span>
+
+                            {{ data.Local.BillToCity | Replace: 'Not Available', '' }}
+
+                            <br>
+
+                             {% T Umsatzsteuer ID: %}
+
+                                {{ data.Local.TaxIDCode }}
+
+                                </div>
+
+                            
+
+                                        <br>
+
+
+                    </div>
+
+                    
+
+                    </div>
+                    <div><u>Zahlungsdetails:</u></div>
+
+                    <div style="display: flex; justify-content: space-between; page-break-inside: avoid; break-inside: avoid;">
+                        <div class="left-column"> 
+                            <div id="bank_name">
+                    
+
+                    {% T Bank Name: %}
+
+                    {{ data.Local.BankName }}
+                    </div>
+
+                <div id="account-number">
+
+                    {% T IBAN: %}
+
+                    {{ data.Local.AccountNumber }}
+
+                </div>
+
+                <div id="bank-code">
+
+                    {% T BIC: %}
+
+                    {{ data.Local.BankCode }}
+
+                </div>
+
+                 <div id="payment-reference">
+
+                   {% T Verwendungszweck: %}
+
+                    {{ data.Local.Invoice.PaymentReference }}
+            </div>
+            </div>
+            <div class="right-column" style="width: 50%;  " page-break-inside: avoid; break-inside: avoid;>
+                
+                <div>Bank: HypoVereinsbank – Member of UniCredit</div>
+                <div>IBAN: DE32 1002 0890 0040 8054 43</div>
+                <div>BIC: HYVEDEMM488</div>
+                <div id="payment-reference">
+
+                   {% T Verwendungszweck: %}
+
+                    {{ data.Local.Invoice.PaymentReference }}
+                </div>
+
+
+            </div>
+            </div>
+
+
+
+            </div>
+            <div page-break-inside: avoid; break-inside: avoid;>
+                <p><u>Sollten Sie die Zahlart Kreditkarte oder Lastschrift mit uns vereinbart haben, überweisen Sie bitte nicht. Der Rechnungsbetrag wird automatisch eingezogen.</u></p>
+                
+            </div>
+            {% if data.Local.Invoice.Notes %}
+
+            <div class="notes">
+                <h2>
+                    {% T Notes %}
+                </h2>
+                <div>
+                    {{ data.Local.Invoice.Notes }}
+                </div>
+            </div>
+            {% endif %}
+            <div style="margin-top: 50px; color: dark-grey; font-weight: 300; page-break-inside: avoid; break-inside: avoid;">
+                <p>Geschäftsführer: Markus Hummelsberger & Gregory von Abendroth<br>
+                Registergericht: Amtsgericht Mannheim<br>
+                Handelsregisternummer: HRB 741377<br>
+                USt-IdNr. DE346218150<br>
+                Finanzamt Mannheim-Neckarstadt</p>
+            </div>
+        </div>
+        <div class="clear"></div>
+    </div>
+    
+</body>
+
+</html>
