@@ -84,7 +84,7 @@ async function getNexudusToken() {
 async function downloadReport(token) {
   const { start, end } = getDateRange();
   
-  console.log(`Fetching invoices from ${start} to ${end}`);
+  console.log(`📅 Fetching invoices from ${start} to ${end}`);
   
   const response = await axios.get(NEXUDUS_REPORT_URL, {
     params: {
@@ -149,7 +149,7 @@ async function uploadToS3() {
   }).promise();
 
   console.log("✔ File uploaded to S3:", `s3://${S3_BUCKET}/${S3_KEY}`);
-  console.log("VersionId:", result.VersionId);
+  console.log("📦 VersionId:", result.VersionId);
 }
 
 // --------------------------------------------------
@@ -157,25 +157,25 @@ async function uploadToS3() {
 // --------------------------------------------------
 (async function run() {
   try {
-    console.log("=== Starting ETL Job ===");
-    console.log("Run time:", new Date().toISOString());
+    console.log("=== 🚀 Starting ETL Job ===");
+    console.log("⏰ Run time:", new Date().toISOString());
     
-    console.log("Authenticating with Nexudus...");
+    console.log("🔑 Authenticating with Nexudus...");
     const token = await getNexudusToken();
 
-    console.log("Downloading Nexudus report...");
+    console.log("📥 Downloading Nexudus report...");
     const reportBuffer = await downloadReport(token);
 
-    console.log("Updating template Excel...");
+    console.log("📝 Updating template Excel...");
     await writeToTemplate(reportBuffer);
 
-    console.log("Uploading to S3...");
+    console.log("☁️  Uploading to S3...");
     await uploadToS3();
 
-    console.log("✔ ETL completed successfully");
-    console.log("=========================");
+    console.log("✅ ETL completed successfully");
+    console.log("============================");
   } catch (err) {
-    console.error("✖ ETL failed:", err.message);
+    console.error("❌ ETL failed:", err.message);
     console.error(err.stack);
     process.exit(1);
   }

@@ -48,6 +48,6 @@ jobs:
       - name: Notify on failure
         if: failure()
         run: |
-          echo "ETL job failed! Check the logs above for details."
+          echo "❌ ETL job failed! Check the logs above for details."
           echo "Run number: ${{ github.run_number }}"
           echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
