@@ -1,53 +1,59 @@
-name: Daily ETL Job - Nexudus Invoices
+name: Nexudus ETL Report - Daily at 9am
 
 on:
   schedule:
-    # Runs every day at 10:00 AM UTC
-    # Adjust the time if you need a different timezone
-    - cron: '0 10 * * *'
+    # Runs every day at 9:00 AM UTC
+    # Adjust the time as needed: "0 9 * * *"
+    # Format: minute hour day month day-of-week
+    - cron: "0 9 * * *"
   
-  # Allows manual triggering from GitHub Actions tab
+  # Allow manual trigger for testing
   workflow_dispatch:
 
 jobs:
-  run-etl:
+  etl-job:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
       
       - name: Install dependencies
         run: npm ci
       
       - name: Run ETL Job
         env:
-          # These need to be set in your GitHub repository secrets
           NEXUDUS_USERNAME: ${{ secrets.NEXUDUS_USERNAME }}
           NEXUDUS_PASSWORD: ${{ secrets.NEXUDUS_PASSWORD }}
-          BUSINESS_ID: ${{ secrets.BUSINESS_ID }}
+          BUSINESS_ID: ${{ secrets.NEXUDUS_BUSINESS_ID }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: node downloadInvoices.js
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          DEBUG: false
+        run: node etl_script_corrected.js
       
-      - name: Upload output as artifact
-        if: always() # Upload even if ETL fails (for debugging)
-        uses: actions/upload-artifact@v4
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
         with:
-          name: etl-output-${{ github.run_number }}
-          path: output/
+          name: etl-logs
           retention-days: 30
       
-      - name: Notify on failure
+      - name: Notify on failure (optional)
         if: failure()
-        run: |
-          echo "❌ ETL job failed! Check the logs above for details."
-          echo "Run number: ${{ github.run_number }}"
-          echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ ETL Job failed. Check the workflow logs for details.'
+            })
