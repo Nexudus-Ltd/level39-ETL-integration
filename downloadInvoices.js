@@ -173,14 +173,30 @@ async function writeToTemplate(excelBuffer, outputFile) {
       throw new Error("Nexudus workbook contains no sheets");
     }
 
-    const sourceSheetName = sourceWorkbook.SheetNames[0];
+    console.log(`  ├─ Available sheets in Nexudus report: ${sourceWorkbook.SheetNames.join(", ")}`);
+
+    // Find the sheet with the most data (likely the actual invoice data)
+    let sourceSheetName = sourceWorkbook.SheetNames[0];
+    let maxCells = 0;
+    
+    sourceWorkbook.SheetNames.forEach(sheetName => {
+      const sheet = sourceWorkbook.Sheets[sheetName];
+      const cellCount = Object.keys(sheet).length;
+      console.log(`  ├─ "${sheetName}": ${cellCount} cells`);
+      
+      if (cellCount > maxCells) {
+        maxCells = cellCount;
+        sourceSheetName = sheetName;
+      }
+    });
+
+    console.log(`  ├─ Using sheet: "${sourceSheetName}" (${maxCells} cells)`);
+
     const sourceSheet = sourceWorkbook.Sheets[sourceSheetName];
 
     if (!sourceSheet) {
       throw new Error(`Cannot access sheet "${sourceSheetName}" in Nexudus workbook`);
     }
-
-    console.log(`  ├─ Source sheet: "${sourceSheetName}" (${Object.keys(sourceSheet).length} cells)`);
 
     // Load template workbook
     if (!fs.existsSync(TEMPLATE_FILE)) {
