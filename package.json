@@ -1,10 +1,31 @@
 {
+  "name": "nexudus-etl",
+  "version": "2.0.0",
+  "description": "ETL pipeline: Nexudus Invoices → Excel Template → S3",
+  "main": "etl_script_corrected.js",
+  "scripts": {
+    "start": "node etl_script_corrected.js",
+    "dev": "DEBUG=true node etl_script_corrected.js",
+    "test": "echo \"Run manual tests before deploying\""
+  },
+  "keywords": [
+    "nexudus",
+    "etl",
+    "s3",
+    "excel",
+    "automation"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.1693.0",
-    "axios": "^1.13.2",
-    "dotenv": "^17.2.3",
-    "exceljs": "^4.4.0",
-    "fs-extra": "^11.3.3",
+    "@aws-sdk/client-s3": "^3.515.0",
+    "axios": "^1.6.5",
+    "dotenv": "^16.3.1",
+    "fs-extra": "^11.2.0",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
