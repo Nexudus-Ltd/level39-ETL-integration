@@ -39,21 +39,9 @@ jobs:
           DEBUG: false
         run: node etl_script_corrected.js
       
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: etl-logs
-          retention-days: 30
-      
       - name: Notify on failure (optional)
         if: failure()
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ ETL Job failed. Check the workflow logs for details.'
-            })
+            console.log('ETL Job failed. Check the workflow logs for details.')
