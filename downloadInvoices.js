@@ -2,8 +2,9 @@
  * Nexudus Invoices → ETL Excel Copier → S3 Versioned Upload
  * ---------------------------------------------------------
  * Reads a template, replaces sheet with Nexudus data,
- * saves locally, then uploads to S3 with versioning.
+ * saves locally with timestamped filename, then uploads to S3 with versioning.
  * 
+ * Creates a new file each run: ETL_MarioDemo_YYYY-MM-DD_HHmmss.xlsx
  * Fetches the previous day's invoice data.
  * Designed to run daily via GitHub Actions workflow.
  */
@@ -19,18 +20,39 @@ const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 // --------------------------------------------------
 const TEMPLATE_FILE = path.join(__dirname, "template/ETL_MarioDemo.xlsx");
 const OUTPUT_DIR = path.join(__dirname, "output");
-const OUTPUT_FILE = path.join(OUTPUT_DIR, "ETL_MarioDemo.xlsx");
 const DEST_SHEET_NAME = "Membership invoices";
 const NEXUDUS_REPORT_URL = "https://reports.nexudus.com/ReportCenter/Invoices";
 const NEXUDUS_TOKEN_URL = "https://spaces.nexudus.com/api/token";
 
 // S3
 const S3_BUCKET = process.env.S3_BUCKET || "level39-etl-mario";
-const S3_KEY = "output/ETL_MarioDemo.xlsx";
+const S3_KEY_PREFIX = "output/"; // Files will be saved as: output/ETL_MarioDemo_YYYY-MM-DD_HHmmss.xlsx
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "us-east-1"
 });
+
+// --------------------------------------------------
+// Generate timestamped filename
+// --------------------------------------------------
+function generateOutputFilename() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
+  const hours = String(now.getUTCHours()).padStart(2, "0");
+  const minutes = String(now.getUTCMinutes()).padStart(2, "0");
+  const seconds = String(now.getUTCSeconds()).padStart(2, "0");
+  
+  const timestamp = `${year}-${month}-${day}_${hours}${minutes}${seconds}`;
+  const filename = `ETL_MarioDemo_${timestamp}.xlsx`;
+  
+  return {
+    local: path.join(OUTPUT_DIR, filename),
+    s3: `${S3_KEY_PREFIX}${filename}`,
+    displayName: filename
+  };
+}
 
 // --------------------------------------------------
 // Calculate yesterday's date range (00:00:00 - 23:59:59 UTC)
@@ -138,7 +160,7 @@ async function downloadReport(token) {
 // --------------------------------------------------
 // Write report to template & save locally
 // --------------------------------------------------
-async function writeToTemplate(excelBuffer) {
+async function writeToTemplate(excelBuffer, outputFile) {
   try {
     await fs.ensureDir(OUTPUT_DIR);
     
@@ -181,9 +203,9 @@ async function writeToTemplate(excelBuffer) {
     XLSX.utils.book_append_sheet(destWorkbook, sourceSheet, DEST_SHEET_NAME);
     console.log(`  └─ New sheet added: "${DEST_SHEET_NAME}"`);
 
-    // Save locally
-    XLSX.writeFile(destWorkbook, OUTPUT_FILE);
-    console.log(`✔ Local ETL file updated: ${OUTPUT_FILE}`);
+    // Save locally with timestamped filename
+    XLSX.writeFile(destWorkbook, outputFile);
+    console.log(`✔ Local ETL file saved: ${outputFile}`);
   } catch (err) {
     throw new Error(`Failed to process Excel template: ${err.message}`);
   }
@@ -192,21 +214,21 @@ async function writeToTemplate(excelBuffer) {
 // --------------------------------------------------
 // Upload to S3 (versioned)
 // --------------------------------------------------
-async function uploadToS3() {
+async function uploadToS3(localFile, s3Key, displayName) {
   try {
     console.log("☁️  Uploading to S3...");
 
-    const fileContent = fs.readFileSync(OUTPUT_FILE);
+    const fileContent = fs.readFileSync(localFile);
 
     const result = await s3Client.send(
       new PutObjectCommand({
         Bucket: S3_BUCKET,
-        Key: S3_KEY,
+        Key: s3Key,
         Body: fileContent
       })
     );
 
-    console.log(`✔ File uploaded to S3: s3://${S3_BUCKET}/${S3_KEY}`);
+    console.log(`✔ File uploaded to S3: s3://${S3_BUCKET}/${s3Key}`);
     if (result.VersionId) {
       console.log(`📦 Version ID: ${result.VersionId}`);
     } else {
@@ -233,6 +255,11 @@ async function runETL() {
     console.log(`⏰ Run time: ${new Date().toISOString()}`);
     console.log();
 
+    // Generate timestamped output filenames
+    const fileNames = generateOutputFilename();
+    console.log(`📁 Output file: ${fileNames.displayName}`);
+    console.log();
+
     // Validate environment variables
     const requiredEnvVars = [
       "NEXUDUS_USERNAME",
@@ -250,8 +277,8 @@ async function runETL() {
     // Execute ETL pipeline
     const token = await getNexudusToken();
     const reportBuffer = await downloadReport(token);
-    await writeToTemplate(reportBuffer);
-    await uploadToS3();
+    await writeToTemplate(reportBuffer, fileNames.local);
+    await uploadToS3(fileNames.local, fileNames.s3, fileNames.displayName);
 
     console.log();
     console.log("=".repeat(50));

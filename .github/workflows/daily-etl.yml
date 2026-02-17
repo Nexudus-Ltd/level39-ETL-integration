@@ -37,7 +37,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           DEBUG: false
-        run: node etl_script_corrected.js
+        run: node downloadInvoices.js
       
       - name: Notify on failure (optional)
         if: failure()
