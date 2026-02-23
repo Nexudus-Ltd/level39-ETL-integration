@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
 Nexudus Invoices → ETL Excel Copier → S3 Versioned Upload
----------------------------------------------------------
-Opens template, adds Nexudus data to Membership Invoices sheet, saves and uploads.
-Simple approach: minimal changes to preserve all Excel features.
+Handles both XLS (old Excel) and XLSX (new Excel) formats from Nexudus
 """
 
 import os
@@ -11,11 +9,10 @@ import sys
 from datetime import datetime, timedelta
 import requests
 from io import BytesIO
-import json
 from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
 import boto3
 from botocore.exceptions import ClientError
+import xlrd
 
 # --------------------------------------------------
 # CONFIG
@@ -23,7 +20,6 @@ from botocore.exceptions import ClientError
 TEMPLATE_FILE = "template/ETL_MarioDemo.xlsx"
 OUTPUT_DIR = "output"
 DEST_SHEET_NAME = "Membership invoices"
-DATA_START_ROW = 1  # Data starts at row 1
 
 NEXUDUS_REPORT_URL = "https://reports.nexudus.com/ReportCenter/Invoices"
 NEXUDUS_TOKEN_URL = "https://spaces.nexudus.com/api/token"
@@ -135,7 +131,19 @@ def download_report(token):
             raise Exception("Nexudus report returned empty data")
         
         print(f"✔ Report downloaded successfully ({len(response.content)} bytes)")
-        return BytesIO(response.content)
+        
+        # Check file format
+        file_sig = response.content[:8]
+        if file_sig.startswith(b'\xd0\xcf\x11\xe0'):
+            print(f"  ├─ ✔ File is OLE2/XLS format (old Excel)")
+            file_type = "xls"
+        elif file_sig.startswith(b'PK'):
+            print(f"  ├─ ✔ File is XLSX format (new Excel)")
+            file_type = "xlsx"
+        else:
+            raise Exception(f"Unknown file format. First bytes: {file_sig}")
+        
+        return BytesIO(response.content), file_type
         
     except requests.exceptions.RequestException as err:
         if "404" in str(err):
@@ -147,14 +155,63 @@ def download_report(token):
         raise Exception(f"Failed to download Nexudus report: {str(err)}")
 
 # --------------------------------------------------
-# Update template with data
+# Convert XLS to XLSX if needed
 # --------------------------------------------------
-def update_template_with_data(report_buffer, output_file):
+def convert_xls_to_xlsx(file_buffer):
+    """Convert XLS (OLE2) file to XLSX format"""
+    try:
+        print("  ├─ Converting XLS to XLSX format...")
+        
+        # Read the XLS file
+        file_buffer.seek(0)
+        xls_workbook = xlrd.open_workbook(file_contents=file_buffer.read())
+        
+        print(f"  ├─ XLS has {len(xls_workbook.sheet_names())} sheets: {', '.join(xls_workbook.sheet_names())}")
+        
+        # Create a new XLSX workbook
+        xlsx_workbook = load_workbook()
+        xlsx_workbook.remove(xlsx_workbook.active)  # Remove default sheet
+        
+        # Copy each sheet from XLS to XLSX
+        for sheet_idx, sheet_name in enumerate(xls_workbook.sheet_names()):
+            xls_sheet = xls_workbook.sheet_by_index(sheet_idx)
+            xlsx_sheet = xlsx_workbook.create_sheet(title=sheet_name)
+            
+            print(f"  ├─ Copying sheet '{sheet_name}' ({xls_sheet.nrows} rows, {xls_sheet.ncols} cols)")
+            
+            # Copy all cells
+            for row_idx in range(xls_sheet.nrows):
+                for col_idx in range(xls_sheet.ncols):
+                    cell_value = xls_sheet.cell_value(row_idx, col_idx)
+                    if cell_value is not None and cell_value != '':
+                        xlsx_sheet.cell(row=row_idx + 1, column=col_idx + 1, value=cell_value)
+        
+        print(f"  └─ Conversion complete")
+        
+        # Save to buffer
+        output_buffer = BytesIO()
+        xlsx_workbook.save(output_buffer)
+        output_buffer.seek(0)
+        
+        return output_buffer
+        
+    except Exception as err:
+        raise Exception(f"Failed to convert XLS to XLSX: {str(err)}")
+
+# --------------------------------------------------
+# Replace Membership invoices sheet with Nexudus data
+# --------------------------------------------------
+def update_template_with_nexudus_sheet(report_buffer, file_type, output_file):
     try:
         print("📝 Processing Excel data...")
         
+        # Convert if XLS format
+        if file_type == "xls":
+            report_buffer = convert_xls_to_xlsx(report_buffer)
+        
         # Load the Nexudus report
         print("  ├─ Loading Nexudus report...")
+        report_buffer.seek(0)
         report_wb = load_workbook(report_buffer)
         
         if not report_wb.sheetnames:
@@ -162,27 +219,21 @@ def update_template_with_data(report_buffer, output_file):
         
         print(f"  ├─ Available sheets: {', '.join(report_wb.sheetnames)}")
         
-        # Find sheet with most data
+        # Get the first sheet from Nexudus
         source_sheet_name = report_wb.sheetnames[0]
-        max_cells = 0
-        
-        for sheet_name in report_wb.sheetnames:
-            sheet = report_wb[sheet_name]
-            cell_count = sum(1 for row in sheet.iter_rows() for cell in row if cell.value is not None)
-            print(f"  ├─ '{sheet_name}': {cell_count} cells")
-            
-            if cell_count > max_cells:
-                max_cells = cell_count
-                source_sheet_name = sheet_name
-        
-        print(f"  ├─ Using sheet: '{source_sheet_name}' ({max_cells} cells)")
-        
         source_sheet = report_wb[source_sheet_name]
+        
+        print(f"  ├─ Using sheet: '{source_sheet_name}'")
+        print(f"  ├─ Sheet has {source_sheet.max_row} rows and {source_sheet.max_column} columns")
         
         # Load template
         print("  ├─ Loading template...")
+        
         if not os.path.exists(TEMPLATE_FILE):
             raise Exception(f"Template file not found: {TEMPLATE_FILE}")
+        
+        file_size = os.path.getsize(TEMPLATE_FILE)
+        print(f"  ├─ Template file size: {file_size} bytes")
         
         template_wb = load_workbook(TEMPLATE_FILE)
         print(f"  ├─ Template sheets: {', '.join(template_wb.sheetnames)}")
@@ -190,40 +241,15 @@ def update_template_with_data(report_buffer, output_file):
         if DEST_SHEET_NAME not in template_wb.sheetnames:
             raise Exception(f"Sheet '{DEST_SHEET_NAME}' not found in template")
         
-        dest_sheet = template_wb[DEST_SHEET_NAME]
-        print(f"  ├─ Found destination sheet: '{DEST_SHEET_NAME}'")
+        print(f"  ├─ Removing old '{DEST_SHEET_NAME}' sheet...")
+        template_wb.remove(template_wb[DEST_SHEET_NAME])
         
-        # Copy data from source to destination starting at row 6
-        print(f"  ├─ Copying data starting at row {DATA_START_ROW}...")
+        print(f"  ├─ Copying Nexudus sheet into template...")
+        source_sheet_copy = template_wb.copy_worksheet(source_sheet)
+        source_sheet_copy.title = DEST_SHEET_NAME
         
-        copied_rows = 0
-        copied_cells = 0
-        
-        # Iterate through source sheet
-        for src_row_idx, src_row in enumerate(source_sheet.iter_rows()):
-            dest_row_idx = DATA_START_ROW + src_row_idx
-            
-            for src_col_idx, src_cell in enumerate(src_row, start=1):
-                if src_cell.value is not None:
-                    dest_cell = dest_sheet.cell(row=dest_row_idx, column=src_col_idx)
-                    
-                    # Copy value
-                    dest_cell.value = src_cell.value
-                    
-                    # Copy data type if available
-                    if hasattr(src_cell, 'data_type'):
-                        dest_cell.data_type = src_cell.data_type
-                    
-                    # Copy number format if available
-                    if src_cell.number_format:
-                        dest_cell.number_format = src_cell.number_format
-                    
-                    copied_cells += 1
-            
-            copied_rows += 1
-        
-        print(f"  ├─ Copied {copied_rows} rows ({copied_cells} cells)")
-        print(f"  └─ Saving template...")
+        print(f"  ├─ Template sheets now: {', '.join(template_wb.sheetnames)}")
+        print(f"  └─ Saving to file...")
         
         # Save to output file
         template_wb.save(output_file)
@@ -297,8 +323,8 @@ def run_etl():
         
         # Execute ETL pipeline
         token = get_nexudus_token()
-        report_buffer = download_report(token)
-        update_template_with_data(report_buffer, file_names["local"])
+        report_buffer, file_type = download_report(token)
+        update_template_with_nexudus_sheet(report_buffer, file_type, file_names["local"])
         upload_to_s3(file_names["local"], file_names["s3"], file_names["displayName"])
         
         print()
