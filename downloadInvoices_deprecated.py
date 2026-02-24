@@ -7,7 +7,6 @@ Handles both XLS (old Excel) and XLSX (new Excel) formats from Nexudus
 import os
 import sys
 from datetime import datetime, timedelta
-from copy import copy
 import requests
 from io import BytesIO
 from openpyxl import load_workbook
@@ -170,8 +169,7 @@ def convert_xls_to_xlsx(file_buffer):
         print(f"  ├─ XLS has {len(xls_workbook.sheet_names())} sheets: {', '.join(xls_workbook.sheet_names())}")
         
         # Create a new XLSX workbook
-        from openpyxl.workbook import Workbook
-        xlsx_workbook = Workbook()
+        xlsx_workbook = load_workbook()
         xlsx_workbook.remove(xlsx_workbook.active)  # Remove default sheet
         
         # Copy each sheet from XLS to XLSX
@@ -199,39 +197,6 @@ def convert_xls_to_xlsx(file_buffer):
         
     except Exception as err:
         raise Exception(f"Failed to convert XLS to XLSX: {str(err)}")
-
-# --------------------------------------------------
-# Copy cell with formatting
-# --------------------------------------------------
-def copy_cell_with_formatting(source_cell, dest_cell):
-    """Copy cell value and formatting from source to destination"""
-    # Copy value
-    if source_cell.value is not None:
-        dest_cell.value = source_cell.value
-    
-    # Copy data type
-    if source_cell.data_type:
-        dest_cell.data_type = source_cell.data_type
-    
-    # Copy number format
-    if source_cell.number_format:
-        dest_cell.number_format = source_cell.number_format
-    
-    # Copy font
-    if source_cell.font:
-        dest_cell.font = copy(source_cell.font)
-    
-    # Copy fill
-    if source_cell.fill:
-        dest_cell.fill = copy(source_cell.fill)
-    
-    # Copy border
-    if source_cell.border:
-        dest_cell.border = copy(source_cell.border)
-    
-    # Copy alignment
-    if source_cell.alignment:
-        dest_cell.alignment = copy(source_cell.alignment)
 
 # --------------------------------------------------
 # Replace Membership invoices sheet with Nexudus data
@@ -279,15 +244,9 @@ def update_template_with_nexudus_sheet(report_buffer, file_type, output_file):
         print(f"  ├─ Removing old '{DEST_SHEET_NAME}' sheet...")
         template_wb.remove(template_wb[DEST_SHEET_NAME])
         
-        print(f"  ├─ Creating new '{DEST_SHEET_NAME}' sheet...")
-        dest_sheet = template_wb.create_sheet(title=DEST_SHEET_NAME)
-        
-        print(f"  ├─ Copying data from Nexudus sheet...")
-        # Copy all cells from source to destination with formatting
-        for row in source_sheet.iter_rows():
-            for cell in row:
-                new_cell = dest_sheet.cell(row=cell.row, column=cell.column)
-                copy_cell_with_formatting(cell, new_cell)
+        print(f"  ├─ Copying Nexudus sheet into template...")
+        source_sheet_copy = template_wb.copy_worksheet(source_sheet)
+        source_sheet_copy.title = DEST_SHEET_NAME
         
         print(f"  ├─ Template sheets now: {', '.join(template_wb.sheetnames)}")
         print(f"  └─ Saving to file...")
