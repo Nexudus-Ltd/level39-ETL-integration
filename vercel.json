@@ -1,11 +1,9 @@
 {
-  "framework": null,
-  "buildCommand": null,
-  "devCommand": null,
+  "runtime": "node18.x",
   "functions": {
     "api/**/*.js": {
       "runtime": "nodejs18.x",
-      "memory": 3008,
+      "memory": 1024,
       "maxDuration": 60
     }
   }
