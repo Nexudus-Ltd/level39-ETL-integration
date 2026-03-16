@@ -1,5 +1,7 @@
 {
-  "runtime": "node18.x",
+  "framework": null,
+  "buildCommand": null,
+  "devCommand": null,
   "functions": {
     "api/**/*.js": {
       "runtime": "nodejs18.x",
