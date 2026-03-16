@@ -59,25 +59,7 @@ export default async (req, res) => {
 
     console.log(`📅 Fetching invoices from ${start} to ${end}`);
 
-    // Download report from Nexudus
-    const reportResponse = await fetch('https://reports.nexudus.com/ReportCenter/Invoices', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`,
-        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      },
-      // Note: Nexudus uses URL parameters, not body
-      _queryParams: {
-        businessId: process.env.BUSINESS_ID,
-        reportName: 'Invoices/InvoicesAccount',
-        start: start,
-        end: end,
-        format: 'Excel',
-        portrait: 'false'
-      }
-    });
-
-    // Construct URL with query params properly
+    // Construct URL with query params
     const url = new URL('https://reports.nexudus.com/ReportCenter/Invoices');
     url.searchParams.append('businessId', process.env.BUSINESS_ID);
     url.searchParams.append('reportName', 'Invoices/InvoicesAccount');
@@ -86,7 +68,7 @@ export default async (req, res) => {
     url.searchParams.append('format', 'Excel');
     url.searchParams.append('portrait', 'false');
 
-    const reportResponse2 = await fetch(url.toString(), {
+    const reportResponse = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
@@ -94,11 +76,12 @@ export default async (req, res) => {
       }
     });
 
-    if (!reportResponse2.ok) {
-      throw new Error(`Failed to download report: ${reportResponse2.status}`);
+    if (!reportResponse.ok) {
+      throw new Error(`Failed to download report: ${reportResponse.status}`);
     }
 
-    const reportBuffer = await reportResponse2.buffer();
+    const reportArrayBuffer = await reportResponse.arrayBuffer();
+    const reportBuffer = Buffer.from(reportArrayBuffer);
     console.log(`✔ Report downloaded successfully (${reportBuffer.length} bytes)`);
 
     // Initialize S3
@@ -130,9 +113,9 @@ export default async (req, res) => {
     console.log(`✔ File uploaded to S3: s3://${process.env.S3_BUCKET}/output/${filename}`);
 
     console.log('');
-    console.log('=' * 50);
+    console.log('==================================================');
     console.log('✅ ETL Job Completed Successfully');
-    console.log('=' * 50);
+    console.log('==================================================');
 
     return res.status(200).json({
       success: true,
@@ -143,12 +126,12 @@ export default async (req, res) => {
 
   } catch (error) {
     console.error('');
-    console.error('=' * 50);
+    console.error('==================================================');
     console.error('❌ ETL Job Failed');
-    console.error('=' * 50);
+    console.error('==================================================');
     console.error(`⏰ Error time: ${new Date().toISOString()}`);
     console.error(`📌 Error: ${error.message}`);
-    console.error('=' * 50);
+    console.error('==================================================');
 
     return res.status(500).json({
       success: false,
