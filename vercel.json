@@ -1,0 +1,10 @@
+{
+  "runtime": "node18.x",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x",
+      "memory": 3008,
+      "maxDuration": 60
+    }
+  }
+}
