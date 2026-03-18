@@ -1,0 +1,48 @@
+name: Nexudus ETL - Daily at 9am
+
+on:
+  schedule:
+    # Runs every Monday at 9:00 AM UTC
+    - cron: "0 9 * * 1"
+    
+    # Runs on the 1st of every month at 9:00 AM UTC (to catch mid-week month ends)
+    - cron: "0 9 1 * *"
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  etl-job:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run ETL Job
+        env:
+          NEXUDUS_USERNAME: ${{ secrets.NEXUDUS_USERNAME }}
+          NEXUDUS_PASSWORD: ${{ secrets.NEXUDUS_PASSWORD }}
+          BUSINESS_ID: ${{ secrets.NEXUDUS_BUSINESS_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: node api/download-nexudus.js
+      
+      - name: Job completed
+        if: success()
+        run: echo "✅ ETL Job completed successfully"
+      
+      - name: Job failed
+        if: failure()
+        run: echo "❌ ETL Job failed - check logs"

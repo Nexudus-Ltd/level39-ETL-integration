@@ -1,9 +1,10 @@
 const AWS = require('aws-sdk');
 
-export default async (req, res) => {
+async function runETL() {
   try {
     console.log('🚀 Starting Nexudus ETL Job');
     console.log(`⏰ Run time: ${new Date().toISOString()}`);
+    console.log('');
     
     // Validate environment variables
     const requiredVars = [
@@ -45,19 +46,87 @@ export default async (req, res) => {
       throw new Error('No access token received from Nexudus');
     }
     console.log('✔ Nexudus token obtained successfully');
+    console.log('');
 
-    // Calculate yesterday's date range
-    const yesterday = new Date();
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    // Determine which report to run based on the current day
+    const today = new Date();
+    const dayOfMonth = today.getUTCDate();
+    const dayOfWeek = today.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
     
-    const year = yesterday.getUTCFullYear();
-    const month = String(yesterday.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(yesterday.getUTCDate()).padStart(2, '0');
+    let start, end;
     
-    const start = `${year}-${month}-${day}T00:00:00`;
-    const end = `${year}-${month}-${day}T23:59:59`;
-
-    console.log(`📅 Fetching invoices from ${start} to ${end}`);
+    // Check if today is the 1st of the month (run month-end report)
+    if (dayOfMonth === 1) {
+      // Run report for the remaining days of the previous week that are in the previous month
+      // Get the last day of the previous month
+      const lastDayPrevMonth = new Date(today);
+      lastDayPrevMonth.setUTCDate(0); // Go to last day of previous month
+      
+      // Find the Monday of the week that contains the last day of previous month
+      const lastDayOfWeek = lastDayPrevMonth.getUTCDay();
+      const daysBackToMonday = (lastDayOfWeek === 0) ? 6 : (lastDayOfWeek - 1);
+      
+      const mondayOfLastWeek = new Date(lastDayPrevMonth);
+      mondayOfLastWeek.setUTCDate(lastDayPrevMonth.getUTCDate() - daysBackToMonday);
+      
+      // Find the last Monday that was before the end of the month
+      const lastMondayOfMonth = new Date(lastDayPrevMonth);
+      lastMondayOfMonth.setUTCDate(lastDayPrevMonth.getUTCDate() - daysBackToMonday - 7);
+      
+      // Start from the day after last Monday of previous month (or from last Monday if it's in the same month)
+      const startDate = new Date(lastMondayOfMonth);
+      startDate.setUTCDate(lastMondayOfMonth.getUTCDate() + 7); // Add 7 days to get to the next Monday
+      
+      // If that Monday is in the current month, start from that Monday instead
+      if (startDate.getUTCMonth() === today.getUTCMonth()) {
+        // This shouldn't happen on the 1st, but handle it anyway
+        startDate.setUTCDate(startDate.getUTCDate() - 7);
+      }
+      
+      // End date is the last day of the previous month
+      const endDate = lastDayPrevMonth;
+      
+      const startYear = startDate.getUTCFullYear();
+      const startMonth = String(startDate.getUTCMonth() + 1).padStart(2, '0');
+      const startDay = String(startDate.getUTCDate()).padStart(2, '0');
+      
+      const endYear = endDate.getUTCFullYear();
+      const endMonth = String(endDate.getUTCMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getUTCDate()).padStart(2, '0');
+      
+      start = `${startYear}-${startMonth}-${startDay}T00:00:00`;
+      end = `${endYear}-${endMonth}-${endDay}T23:59:59`;
+      
+      console.log(`📅 Month-end report: ${start.split('T')[0]} to ${end.split('T')[0]}`);
+      
+    } else if (dayOfWeek === 1) {
+      // Today is Monday - run weekly report for previous week
+      
+      // Get last Monday (7 days ago)
+      const startDate = new Date(today);
+      startDate.setUTCDate(today.getUTCDate() - 7);
+      
+      // Get last Sunday (1 day ago)
+      const endDate = new Date(today);
+      endDate.setUTCDate(today.getUTCDate() - 1);
+      
+      const startYear = startDate.getUTCFullYear();
+      const startMonth = String(startDate.getUTCMonth() + 1).padStart(2, '0');
+      const startDay = String(startDate.getUTCDate()).padStart(2, '0');
+      
+      const endYear = endDate.getUTCFullYear();
+      const endMonth = String(endDate.getUTCMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getUTCDate()).padStart(2, '0');
+      
+      start = `${startYear}-${startMonth}-${startDay}T00:00:00`;
+      end = `${endYear}-${endMonth}-${endDay}T23:59:59`;
+      
+      console.log(`📅 Weekly report: ${start.split('T')[0]} to ${end.split('T')[0]}`);
+      
+    } else {
+      // Should not happen - workflow is configured to only run on Monday or 1st
+      throw new Error(`Unexpected day: ${dayOfWeek} (${dayOfMonth}). Should only run on Mondays or the 1st of the month.`);
+    }
 
     // Construct URL with query params
     const url = new URL('https://reports.nexudus.com/ReportCenter/Invoices');
@@ -83,6 +152,7 @@ export default async (req, res) => {
     const reportArrayBuffer = await reportResponse.arrayBuffer();
     const reportBuffer = Buffer.from(reportArrayBuffer);
     console.log(`✔ Report downloaded successfully (${reportBuffer.length} bytes)`);
+    console.log('');
 
     // Initialize S3
     const s3 = new AWS.S3({
@@ -111,18 +181,11 @@ export default async (req, res) => {
 
     await s3.putObject(s3Params).promise();
     console.log(`✔ File uploaded to S3: s3://${process.env.S3_BUCKET}/output/${filename}`);
-
     console.log('');
+
     console.log('==================================================');
     console.log('✅ ETL Job Completed Successfully');
     console.log('==================================================');
-
-    return res.status(200).json({
-      success: true,
-      message: 'ETL job completed successfully',
-      filename: filename,
-      s3_path: `s3://${process.env.S3_BUCKET}/output/${filename}`
-    });
 
   } catch (error) {
     console.error('');
@@ -132,11 +195,9 @@ export default async (req, res) => {
     console.error(`⏰ Error time: ${new Date().toISOString()}`);
     console.error(`📌 Error: ${error.message}`);
     console.error('==================================================');
-
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    process.exit(1);
   }
-};
+}
+
+// Run the ETL job
+runETL();
