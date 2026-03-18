@@ -156,7 +156,7 @@ async function runETL() {
     url.searchParams.append('reportName', 'Invoices/InvoicesAccount');
     url.searchParams.append('start', start);
     url.searchParams.append('end', end);
-    url.searchParams.append('format', 'Csv');
+    url.searchParams.append('format', 'Excel');
     url.searchParams.append('portrait', 'false');
 
     const reportResponse = await fetch(url.toString(), {
