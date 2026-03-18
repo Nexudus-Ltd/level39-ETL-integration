@@ -156,7 +156,7 @@ async function runETL() {
     url.searchParams.append('reportName', 'Invoices/InvoicesAccount');
     url.searchParams.append('start', start);
     url.searchParams.append('end', end);
-    url.searchParams.append('format', 'Csv');
+    url.searchParams.append('format', 'csv');
     url.searchParams.append('portrait', 'false');
 
     const reportResponse = await fetch(url.toString(), {
@@ -198,7 +198,7 @@ async function runETL() {
       Bucket: process.env.S3_BUCKET,
       Key: `output/${filename}`,
       Body: reportBuffer,
-      ContentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ContentType: 'text/csv'
     };
 
     await s3.putObject(s3Params).promise();
