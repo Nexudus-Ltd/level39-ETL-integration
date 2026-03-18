@@ -123,9 +123,31 @@ async function runETL() {
       
       console.log(`📅 Weekly report: ${start.split('T')[0]} to ${end.split('T')[0]}`);
       
+    } else if (process.env.FORCE_RUN === 'true') {
+      // Manual test run - use previous Monday's week
+      const startDate = new Date(today);
+      startDate.setUTCDate(today.getUTCDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)); // Get Monday of current week
+      startDate.setUTCDate(startDate.getUTCDate() - 7); // Go back one week
+      
+      const endDate = new Date(startDate);
+      endDate.setUTCDate(startDate.getUTCDate() + 6); // Get Sunday of that week
+      
+      const startYear = startDate.getUTCFullYear();
+      const startMonth = String(startDate.getUTCMonth() + 1).padStart(2, '0');
+      const startDay = String(startDate.getUTCDate()).padStart(2, '0');
+      
+      const endYear = endDate.getUTCFullYear();
+      const endMonth = String(endDate.getUTCMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getUTCDate()).padStart(2, '0');
+      
+      start = `${startYear}-${startMonth}-${startDay}T00:00:00`;
+      end = `${endYear}-${endMonth}-${endDay}T23:59:59`;
+      
+      console.log(`📅 Test run - weekly report: ${start.split('T')[0]} to ${end.split('T')[0]}`);
+      
     } else {
       // Should not happen - workflow is configured to only run on Monday or 1st
-      throw new Error(`Unexpected day: ${dayOfWeek} (${dayOfMonth}). Should only run on Mondays or the 1st of the month.`);
+      throw new Error(`Unexpected day: ${dayOfWeek} (${dayOfMonth}). Should only run on Mondays or the 1st of the month. (Use manual trigger to test)`);
     }
 
     // Construct URL with query params
