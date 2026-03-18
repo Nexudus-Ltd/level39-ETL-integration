@@ -156,7 +156,7 @@ async function runETL() {
     url.searchParams.append('reportName', 'Invoices/InvoicesAccount');
     url.searchParams.append('start', start);
     url.searchParams.append('end', end);
-    url.searchParams.append('format', 'Excel');
+    url.searchParams.append('format', 'Csv');
     url.searchParams.append('portrait', 'false');
 
     const reportResponse = await fetch(url.toString(), {
@@ -191,7 +191,7 @@ async function runETL() {
       String(now.getUTCMinutes()).padStart(2, '0') +
       String(now.getUTCSeconds()).padStart(2, '0');
 
-    const filename = `ETL_MarioDemo_Nexudus_${timestamp}.xlsx`;
+    const filename = `ETL_MarioDemo_Nexudus_${timestamp}.csv`;
 
     console.log('☁️  Uploading to S3...');
     const s3Params = {
