@@ -23,10 +23,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
       
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-save
       
       - name: Run ETL Job
         env:
@@ -37,7 +36,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
-        run: node api/download-nexudus.js
+        run: node nexudus-etl.js
       
       - name: Job completed
         if: success()
